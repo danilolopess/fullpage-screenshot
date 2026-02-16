@@ -1,13 +1,15 @@
 # Full Page Screenshot
 
-Extensão para Google Chrome que captura uma screenshot da aba atual com um clique.
+Extensão para Google Chrome que captura uma screenshot de página inteira (full page) da aba atual com um clique.
 
 ## Funcionalidades
 
-- Captura a área visível da aba atual
-- Salva a imagem automaticamente como PNG
-- Interface simples e direta
-- Permissões mínimas (apenas `activeTab`)
+- **Captura de Página Inteira**: Rola automaticamente a página para capturar todo o conteúdo, não apenas a área visível.
+- **Tratamento Inteligente de Elementos Fixos**: Oculta cabeçalhos e elementos fixos (`position: fixed/sticky`) após a primeira captura para evitar que apareçam repetidos no meio da imagem final.
+- **Suporte a Lazy Load**: Aguarda o carregamento de imagens e conteúdos dinâmicos durante a rolagem.
+- **Nomeação Automática**: Salva o arquivo com o título da página e data/hora para fácil organização.
+- **Controle de Captura**: Botão de "Stop" para interromper o processo a qualquer momento.
+- **Barra de Progresso**: Visualização do andamento da captura.
 
 ## Como instalar
 
@@ -28,10 +30,12 @@ Extensão para Google Chrome que captura uma screenshot da aba atual com um cliq
 
 ## Como usar
 
-1. Navegue até a página que deseja capturar
-2. Clique no ícone da extensão na barra de ferramentas do Chrome
-3. Clique no botão **Capture Current Tab**
-4. A screenshot será baixada automaticamente como arquivo PNG
+1. Navegue até a página que deseja capturar.
+2. Clique no ícone da extensão (câmera azul) na barra de ferramentas do Chrome.
+3. Clique no botão **Capture Full Page**.
+4. A extensão irá rolar a página automaticamente. Uma barra de progresso mostrará o status.
+5. Ao finalizar, a screenshot será processada e baixada automaticamente como arquivo PNG.
+6. Se desejar cancelar, clique no botão **Stop Capture**.
 
 ## Estrutura do projeto
 
@@ -39,7 +43,9 @@ Extensão para Google Chrome que captura uma screenshot da aba atual com um cliq
 fullpage-screenshot/
 ├── manifest.json   # Configuração da extensão (Manifest V3)
 ├── popup.html      # Interface do popup
-├── popup.js        # Lógica de captura da screenshot
+├── popup.css       # Estilos da interface
+├── popup.js        # Lógica principal (controle de captura, stitching, download)
+├── content.js      # Script injetado na página (rolagem, ocultar elementos)
 ├── icons/          # Ícones da extensão
 │   ├── icon16.png
 │   ├── icon48.png
@@ -47,9 +53,19 @@ fullpage-screenshot/
 └── README.md
 ```
 
-## Permissões
+## Permissões e Privacidade
 
-A extensão utiliza apenas a permissão `activeTab`, que concede acesso temporário à aba ativa somente quando o usuário clica no ícone da extensão. Nenhum dado é coletado ou enviado para servidores externos.
+A extensão solicita as seguintes permissões mínimas para funcionar:
+
+- **`activeTab`**:
+  - Permite acessar o conteúdo da aba **apenas quando você clica no ícone da extensão**.
+  - Necessário para capturar a imagem da tela (`captureVisibleTab`) e comunicar com a página.
+  - **Não** concede acesso permanente ao seu histórico de navegação.
+
+- **`scripting`**:
+  - Necessário para injetar o script (`content.js`) que realiza a rolagem automática e oculta elementos fixos durante a captura.
+
+**Privacidade**: Esta extensão funciona 100% offline no seu navegador. Nenhuma imagem ou dado de navegação é enviado para servidores externos ou coletado.
 
 ## Requisitos
 
