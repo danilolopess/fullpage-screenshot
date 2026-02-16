@@ -6,10 +6,7 @@ const progressBar = document.getElementById("progress");
 
 let isCapturing = false;
 
-stopBtn.addEventListener("click", () => {
-  isCapturing = false;
-  status.textContent = "Stopping...";
-});
+// --- Utility Functions ---
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -28,6 +25,136 @@ function loadImage(dataUrl) {
   });
 }
 
+// --- Core Logic ---
+
+async function captureTab(tab) {
+  // Inject content script
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ["content.js"],
+  });
+
+  // Small delay to let the content script register its listener
+  await delay(100);
+
+  // Get page dimensions
+  const pageInfo = await sendMessage(tab.id, { action: "getPageInfo" });
+  const { scrollHeight, clientHeight, devicePixelRatio, originalScrollY } = pageInfo;
+  const dpr = devicePixelRatio;
+
+  const totalSteps = Math.ceil(scrollHeight / clientHeight);
+  const captures = [];
+
+  for (let i = 0; i < totalSteps; i++) {
+    if (!isCapturing) break;
+
+    const y = i * clientHeight;
+    await sendMessage(tab.id, { action: "scrollTo", y });
+    
+    // Delay to ensure lazy loaded elements are rendered
+    await delay(1000);
+
+    // Hide fixed elements after the first scroll to avoid duplication
+    if (i > 0) {
+      await sendMessage(tab.id, { action: "hideFixedElements" });
+    }
+
+    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+      format: "png",
+    });
+    captures.push({ dataUrl, y });
+
+    // Hide fixed elements on the first screen as well for consistency in subsequent logic if needed,
+    // although usually we want the header on the first screen. 
+    // The original logic hid it after capture for the first screen.
+    if (i === 0) {
+      await sendMessage(tab.id, { action: "hideFixedElements" });
+    }
+
+    progressBar.value = Math.round(((i + 1) / totalSteps) * 100);
+    status.textContent = `Capturing ${i + 1}/${totalSteps}...`;
+  }
+
+  // Restore state
+  await sendMessage(tab.id, { action: "restoreFixedElements" });
+  await sendMessage(tab.id, {
+    action: "restoreScroll",
+    y: originalScrollY,
+  });
+
+  return { captures, scrollHeight, dpr };
+}
+
+async function stitchImages(captures, scrollHeight, dpr) {
+  const images = await Promise.all(
+    captures.map((c) => loadImage(c.dataUrl))
+  );
+
+  const captureWidth = images[0].width;
+  const captureHeight = images[0].height;
+  const totalHeight = Math.round(scrollHeight * dpr);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = captureWidth;
+  canvas.height = totalHeight;
+  const ctx = canvas.getContext("2d");
+
+  for (let i = 0; i < images.length; i++) {
+    const img = images[i];
+    const isLast = i === images.length - 1;
+
+    if (!isLast) {
+      ctx.drawImage(img, 0, Math.round(captures[i].y * dpr));
+    } else {
+      const lastScrollY = captures[i].y;
+      const pageBottom = totalHeight;
+      const captureTopInCanvas = Math.round(lastScrollY * dpr);
+      const captureBottomInCanvas = captureTopInCanvas + captureHeight;
+      const overflow = captureBottomInCanvas - pageBottom;
+
+      if (overflow > 0) {
+        const srcY = overflow;
+        const srcH = captureHeight - overflow;
+        const destY = pageBottom - srcH;
+        ctx.drawImage(
+          img,
+          0,
+          srcY,
+          captureWidth,
+          srcH,
+          0,
+          destY,
+          captureWidth,
+          srcH
+        );
+      } else {
+        ctx.drawImage(img, 0, captureTopInCanvas);
+      }
+    }
+  }
+
+  return canvas;
+}
+
+async function downloadCanvas(canvas) {
+  const blob = await new Promise((resolve) =>
+    canvas.toBlob(resolve, "image/png")
+  );
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `fullpage-screenshot-${Date.now()}.png`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// --- Event Listeners ---
+
+stopBtn.addEventListener("click", () => {
+  isCapturing = false;
+  status.textContent = "Stopping...";
+});
+
 captureBtn.addEventListener("click", async () => {
   captureBtn.disabled = true;
   stopBtn.style.display = "block";
@@ -42,55 +169,7 @@ captureBtn.addEventListener("click", async () => {
       currentWindow: true,
     });
 
-    // Inject content script
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["content.js"],
-    });
-
-    // Small delay to let the content script register its listener
-    await delay(100);
-
-    // Get page dimensions
-    const pageInfo = await sendMessage(tab.id, { action: "getPageInfo" });
-    const { scrollHeight, clientHeight, devicePixelRatio, originalScrollY } =
-      pageInfo;
-    const dpr = devicePixelRatio;
-
-    const totalSteps = Math.ceil(scrollHeight / clientHeight);
-    const captures = [];
-
-    for (let i = 0; i < totalSteps; i++) {
-      if (!isCapturing) break;
-
-      const y = i * clientHeight;
-      await sendMessage(tab.id, { action: "scrollTo", y });
-      // Increased delay to ensure lazy loaded elements are rendered
-      await delay(1000);
-
-      if (i > 0) {
-        await sendMessage(tab.id, { action: "hideFixedElements" });
-      }
-
-      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
-        format: "png",
-      });
-      captures.push({ dataUrl, y });
-
-      if (i === 0) {
-        await sendMessage(tab.id, { action: "hideFixedElements" });
-      }
-
-      progressBar.value = Math.round(((i + 1) / totalSteps) * 100);
-      status.textContent = `Capturing ${i + 1}/${totalSteps}...`;
-    }
-
-    // Restore scroll position and remove overflow hidden
-    await sendMessage(tab.id, { action: "restoreFixedElements" });
-    await sendMessage(tab.id, {
-      action: "restoreScroll",
-      y: originalScrollY,
-    });
+    const { captures, scrollHeight, dpr } = await captureTab(tab);
 
     if (!isCapturing) {
       status.textContent = "Capture stopped.";
@@ -98,76 +177,9 @@ captureBtn.addEventListener("click", async () => {
     }
 
     status.textContent = "Stitching image...";
-
-    // Load all captured images
-    const images = await Promise.all(
-      captures.map((c) => loadImage(c.dataUrl))
-    );
-
-    // The captured images are already at device pixel dimensions
-    const captureWidth = images[0].width;
-    const captureHeight = images[0].height;
-    const totalHeight = Math.round(scrollHeight * dpr);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = captureWidth;
-    canvas.height = totalHeight;
-    const ctx = canvas.getContext("2d");
-
-    for (let i = 0; i < images.length; i++) {
-      const img = images[i];
-      const isLast = i === images.length - 1;
-
-      if (!isLast) {
-        // Draw full viewport captures at their scroll position
-        ctx.drawImage(img, 0, Math.round(captures[i].y * dpr));
-      } else {
-        // Last frame: may overlap with the previous one.
-        // The last scroll position is (totalSteps-1)*clientHeight,
-        // but the page ends at scrollHeight. The visible portion at the
-        // bottom of this capture is what we haven't drawn yet.
-        const lastScrollY = captures[i].y;
-        // The actual bottom of the page in canvas coords
-        const pageBottom = totalHeight;
-        // Where this capture's top sits in canvas coords
-        const captureTopInCanvas = Math.round(lastScrollY * dpr);
-        // The bottom of this capture in canvas coords
-        const captureBottomInCanvas = captureTopInCanvas + captureHeight;
-        // How much overflows past the page
-        const overflow = captureBottomInCanvas - pageBottom;
-
-        if (overflow > 0) {
-          // Crop from the bottom of the source image (skip the overlapping top)
-          const srcY = overflow;
-          const srcH = captureHeight - overflow;
-          const destY = pageBottom - srcH;
-          ctx.drawImage(
-            img,
-            0,
-            srcY,
-            captureWidth,
-            srcH,
-            0,
-            destY,
-            captureWidth,
-            srcH
-          );
-        } else {
-          ctx.drawImage(img, 0, captureTopInCanvas);
-        }
-      }
-    }
-
-    // Download the final image
-    const blob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/png")
-    );
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `fullpage-screenshot-${Date.now()}.png`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const canvas = await stitchImages(captures, scrollHeight, dpr);
+    
+    await downloadCanvas(canvas);
 
     status.textContent = "Screenshot saved!";
     progressBar.value = 100;
