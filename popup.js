@@ -82,7 +82,7 @@ async function captureTab(tab) {
     y: originalScrollY,
   });
 
-  return { captures, scrollHeight, dpr };
+  return { captures, scrollHeight, dpr, pageTitle: tab.title };
 }
 
 async function stitchImages(captures, scrollHeight, dpr) {
@@ -136,14 +136,18 @@ async function stitchImages(captures, scrollHeight, dpr) {
   return canvas;
 }
 
-async function downloadCanvas(canvas) {
+async function downloadCanvas(canvas, filename) {
   const blob = await new Promise((resolve) =>
     canvas.toBlob(resolve, "image/png")
   );
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `fullpage-screenshot-${Date.now()}.png`;
+  
+  // Sanitize filename
+  const safeFilename = filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  link.download = `${safeFilename}-${Date.now()}.png`;
+  
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -169,7 +173,7 @@ captureBtn.addEventListener("click", async () => {
       currentWindow: true,
     });
 
-    const { captures, scrollHeight, dpr } = await captureTab(tab);
+    const { captures, scrollHeight, dpr, pageTitle } = await captureTab(tab);
 
     if (!isCapturing) {
       status.textContent = "Capture stopped.";
@@ -179,7 +183,7 @@ captureBtn.addEventListener("click", async () => {
     status.textContent = "Stitching image...";
     const canvas = await stitchImages(captures, scrollHeight, dpr);
     
-    await downloadCanvas(canvas);
+    await downloadCanvas(canvas, pageTitle);
 
     status.textContent = "Screenshot saved!";
     progressBar.value = 100;
