@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Page Screenshot — Capture the entire web</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #111118;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --text-primary: #f0f0f5;
+            --text-secondary: #8a8a9a;
+            --accent-blue: #4285f4;
+            --accent-cyan: #00d4aa;
+            --accent-purple: #7c3aed;
+            --glow-blue: rgba(66, 133, 244, 0.4);
+            --glow-cyan: rgba(0, 212, 170, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Animated Background Canvas */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Scroll Progress Bar */
+        .scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+            z-index: 1000;
+            width: 0%;
+            transition: width 0.1s ease-out;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1.5rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(20px);
+            background: rgba(10, 10, 15, 0.7);
+            border-bottom: 1px solid var(--border-subtle);
+            opacity: 0;
+            transform: translateY(-20px);
+            animation: fadeInDown 0.8s ease-out 0.5s forwards;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .nav-logo svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+            transition: width 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .nav-cta {
+            padding: 0.6rem 1.5rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+        }
+
+        .nav-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(66, 133, 244, 0.5);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 50px;
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            margin-bottom: 2rem;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s ease-out 0.2s forwards;
+        }
+
+        .hero-badge .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 0.8s ease-out 0.4s forwards;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(1rem, 2vw, 1.25rem);
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 3rem;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s ease-out 0.6s forwards;
+        }
+
+        .hero-cta-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s ease-out 0.8s forwards;
+        }
+
+        .btn-primary {
+            padding: 1rem 2.5rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(66, 133, 244, 0.3);
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(66, 133, 244, 0.5);
+        }
+
+        .btn-secondary {
+            padding: 1rem 2.5rem;
+            background: transparent;
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-blue);
+            background: rgba(66, 133, 244, 0.1);
+            transform: translateY(-3px);
+        }
+
+        /* Hero Visual */
+        .hero-visual {
+            margin-top: 4rem;
+            position: relative;
+            opacity: 0;
+            transform: translateY(40px);
+            animation: fadeInUp 1s ease-out 1s forwards;
+        }
+
+        .browser-mockup {
+            width: 800px;
+            max-width: 90vw;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 1px solid var(--border-subtle);
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5), 0 0 60px rgba(66, 133, 244, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .browser-mockup:hover {
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: 0 30px 100px rgba(0, 0, 0, 0.6), 0 0 80px rgba(66, 133, 244, 0.15);
+        }
+
+        .browser-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .browser-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .browser-dot.red { background: #ff5f57; }
+        .browser-dot.yellow { background: #febc2e; }
+        .browser-dot.green { background: #28c840; }
+
+        .browser-address {
+            flex: 1;
+            margin-left: 1rem;
+            padding: 0.4rem 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .browser-content {
+            padding: 2rem;
+            min-height: 300px;
+            position: relative;
+        }
+
+        .screenshot-preview {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, rgba(66, 133, 244, 0.1), rgba(124, 58, 237, 0.1));
+            border-radius: 12px;
+            border: 1px dashed rgba(66, 133, 244, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screenshot-preview::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(66, 133, 244, 0.03) 10px,
+                rgba(66, 133, 244, 0.03) 20px
+            );
+            animation: scan 3s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(20px, 20px); }
+        }
+
+        .screenshot-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+
+        .screenshot-icon svg {
+            width: 24px;
+            height: 24px;
+            color: white;
+        }
+
+        .screenshot-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            z-index: 1;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 8rem 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .section-header {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 5rem;
+        }
+
+        .section-label {
+            display: inline-block;
+            padding: 0.4rem 1rem;
+            background: rgba(0, 212, 170, 0.1);
+            border: 1px solid rgba(0, 212, 170, 0.2);
+            border-radius: 50px;
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-desc {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 2.5rem;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .feature-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(66, 133, 244, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 40px rgba(66, 133, 244, 0.05);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, rgba(66, 133, 244, 0.15), rgba(124, 58, 237, 0.15));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover .feature-icon {
+            background: linear-gradient(135deg, rgba(66, 133, 244, 0.25), rgba(124, 58, 237, 0.25));
+            transform: scale(1.1);
+        }
+
+        .feature-icon svg {
+            width: 24px;
+            height: 24px;
+            color: var(--accent-blue);
+        }
+
+        .feature-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .feature-desc {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        /* How It Works Section */
+        .how-it-works {
+            padding: 8rem 2rem;
+            background: linear-gradient(180deg, transparent 0%, rgba(66, 133, 244, 0.03) 50%, transparent 100%);
+            position: relative;
+            z-index: 1;
+        }
+
+        .steps-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 3rem;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 3rem;
+            opacity: 0;
+            transform: translateX(-30px);
+            transition: all 0.6s ease;
+        }
+
+        .step.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .step:nth-child(even) {
+            flex-direction: row-reverse;
+            transform: translateX(30px);
+        }
+
+        .step:nth-child(even).visible {
+            transform: translateX(0);
+        }
+
+        .step-number {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
+            box-shadow: 0 8px 30px rgba(66, 133, 244, 0.3);
+            position: relative;
+        }
+
+        .step-number::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 19px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            opacity: 0.3;
+            z-index: -1;
+            animation: pulse-ring 2s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.1); opacity: 0.1; }
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .step-desc {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+
+        .step-visual {
+            width: 280px;
+            height: 180px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step-visual::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(66, 133, 244, 0.08), rgba(124, 58, 237, 0.08));
+        }
+
+        .step-visual svg {
+            width: 64px;
+            height: 64px;
+            color: var(--accent-blue);
+            opacity: 0.5;
+            z-index: 1;
+        }
+
+        /* Stats Section */
+        .stats {
+            padding: 6rem 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: all 0.5s ease;
+        }
+
+        .stat-item.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .stat-item:hover {
+            border-color: rgba(66, 133, 244, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 8rem 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-box {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 4rem;
+            background: linear-gradient(135deg, rgba(66, 133, 244, 0.1), rgba(124, 58, 237, 0.1));
+            border: 1px solid rgba(66, 133, 244, 0.2);
+            border-radius: 24px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+        }
+
+        .cta-box.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .cta-box::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(66, 133, 244, 0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .cta-box h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-box p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            position: relative;
+            z-index: 1;
+            font-size: 1.1rem;
+        }
+
+        .cta-box .btn-primary {
+            position: relative;
+            z-index: 1;
+            font-size: 1.1rem;
+            padding: 1.2rem 3rem;
+        }
+
+        /* Footer */
+        footer {
+            padding: 3rem 2rem;
+            border-top: 1px solid var(--border-subtle);
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        footer a:hover {
+            color: var(--accent-cyan);
+        }
+
+        /* Scroll to top button */
+        .scroll-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 48px;
+            height: 48px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 99;
+            color: var(--text-secondary);
+        }
+
+        .scroll-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .scroll-top:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            transform: translateY(-3px);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav {
+                padding: 1rem 1.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .step, .step:nth-child(even) {
+                flex-direction: column;
+                text-align: center;
+                gap: 1.5rem;
+            }
+
+            .step-visual {
+                width: 100%;
+                max-width: 280px;
+            }
+
+            .cta-box {
+                padding: 2.5rem 1.5rem;
+            }
+
+            .cta-box h2 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Scroll Progress -->
+    <div class="scroll-progress" id="scrollProgress"></div>
+
+    <!-- Particle Canvas Background -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Scroll to Top -->
+    <button class="scroll-top" id="scrollTop" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 15l-6-6-6 6"/>
+        </svg>
+    </button>
+
+    <!-- Navigation -->
+    <nav>
+        <a href="#" class="nav-logo">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="3" width="18" height="18" rx="3" stroke="url(#logo-gradient)" stroke-width="2"/>
+                <circle cx="12" cy="12" r="4" fill="url(#logo-gradient)"/>
+                <defs>
+                    <linearGradient id="logo-gradient" x1="3" y1="3" x2="21" y2="21">
+                        <stop offset="0%" stop-color="#4285f4"/>
+                        <stop offset="100%" stop-color="#7c3aed"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            FullPage Screenshot
+        </a>
+        <ul class="nav-links">
+            <li><a href="#features">Recursos</a></li>
+            <li><a href="#how-it-works">Como Funciona</a></li>
+            <li><a href="#download">Download</a></li>
+        </ul>
+        <a href="#download" class="nav-cta">Instalar Agora</a>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-badge">
+            <span class="dot"></span>
+            Chrome Extension • Manifest V3
+        </div>
+        <h1>Capture páginas inteiras<br>com um <span>único clique</span></h1>
+        <p class="hero-subtitle">
+            A extensão mais inteligente para capturar screenshots de página completa. 
+            Rola automaticamente, oculta elementos fixos e faz o stitch perfeito.
+        </p>
+        <div class="hero-cta-group">
+            <a href="#download" class="btn-primary">Baixar Gratuitamente</a>
+            <a href="#how-it-works" class="btn-secondary">Ver Como Funciona</a>
+        </div>
+
+        <div class="hero-visual">
+            <div class="browser-mockup">
+                <div class="browser-header">
+                    <div class="browser-dot red"></div>
+                    <div class="browser-dot yellow"></div>
+                    <div class="browser-dot green"></div>
+                    <div class="browser-address">fullpage-screenshot.example.com</div>
+                </div>
+                <div class="browser-content">
+                    <div class="screenshot-preview">
+                        <div class="screenshot-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                <path d="M21 15l-5-5L5 21"/>
+                            </svg>
+                        </div>
+                        <span class="screenshot-text">Screenshot capturada com sucesso</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">Offline & Privado</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">1s</div>
+                <div class="stat-label">Captura Rápida</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">4K</div>
+                <div class="stat-label">Qualidade Máxima</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Dados Coletados</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="section-header">
+            <span class="section-label">Recursos Poderosos</span>
+            <h2 class="section-title">Tudo que você precisa para capturar a web</h2>
+            <p class="section-desc">Tecnologia inteligente que entende como as páginas funcionam, garantindo screenshots perfeitas sempre.</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 19V5M5 12l7-7 7 7"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">Captura de Página Inteira</h3>
+                <p class="feature-desc">Rola automaticamente por toda a página, capturando cada pixel de conteúdo, não apenas a área visível.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">Suporte a Lazy Load</h3>
+                <p class="feature-desc">Aguarda o carregamento de imagens e conteúdos dinâmicos durante a rolagem, garantindo que nada fique de fora.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <path d="M3 9h18"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">Oculta Elementos Fixos</h3>
+                <p class="feature-desc">Detecta e esconde headers e elementos sticky automaticamente após a primeira captura, evitando duplicações na imagem final.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">Download Automático</h3>
+                <p class="feature-desc">Salva automaticamente como PNG com nome baseado no título da página e timestamp, organizado e pronto para usar.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">Barra de Progresso</h3>
+                <p class="feature-desc">Acompanhe em tempo real o andamento da captura com uma barra de progresso visual e status atualizado.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                </div>
+                <h3 class="feature-title">100% Offline</h3>
+                <p class="feature-desc">Funciona inteiramente no seu navegador. Nenhuma imagem ou dado é enviado para servidores externos.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="section-header">
+            <span class="section-label">Simples e Rápido</span>
+            <h2 class="section-title">Como Funciona</h2>
+            <p class="section-desc">Três passos simples para capturar qualquer página da web inteira.</p>
+        </div>
+
+        <div class="steps-container">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3 class="step-title">Abra a Extensão</h3>
+                    <p class="step-desc">Navegue até a página que deseja capturar e clique no ícone da extensão Full Page Screenshot na barra de ferramentas do Chrome.</p>
+                </div>
+                <div class="step-visual">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3 class="step-title">Inicie a Captura</h3>
+                    <p class="step-desc">Clique em "Capture Full Page". A extensão irá rolar automaticamente pela página, capturando tiles e removendo elementos fixos.</p>
+                </div>
+                <div class="step-visual">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3 class="step-title">Download Automático</h3>
+                    <p class="step-desc">A imagem completa é processada em um canvas de alta resolução e baixada automaticamente como arquivo PNG perfeito.</p>
+                </div>
+                <div class="step-visual">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section" id="download">
+        <div class="cta-box">
+            <h2>Pronto para capturar a web inteira?</h2>
+            <p>Instale agora gratuitamente e comece a fazer screenshots de página completa com um único clique.</p>
+            <a href="#" class="btn-primary" onclick="alert('Extensão disponível no Chrome Web Store em breve!')">Instalar no Chrome</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>Full Page Screenshot — Extensão Chrome open source. <a href="https://github.com">View on GitHub</a></p>
+    </footer>
+
+    <script>
+        // Particle Background
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let mouseX = 0;
+        let mouseY = 0;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.3;
+                this.speedY = (Math.random() - 0.5) * 0.3;
+                this.opacity = Math.random() * 0.5 + 0.1;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                // Mouse interaction
+                const dx = mouseX - this.x;
+                const dy = mouseY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 150) {
+                    const force = (150 - distance) / 150;
+                    this.x -= dx * force * 0.02;
+                    this.y -= dy * force * 0.02;
+                }
+
+                if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(66, 133, 244, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const particleCount = Math.min(window.innerWidth / 10, 100);
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+
+            // Draw connections
+            particles.forEach((p1, i) => {
+                particles.slice(i + 1).forEach(p2 => {
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 120) {
+                        ctx.strokeStyle = `rgba(66, 133, 244, ${0.1 * (1 - distance / 120)})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                });
+            });
+
+            requestAnimationFrame(animateParticles);
+        }
+
+        initParticles();
+        animateParticles();
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        // Scroll Progress
+        const scrollProgress = document.getElementById('scrollProgress');
+        window.addEventListener('scroll', () => {
+            const scrolled = window.scrollY;
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            const progress = (scrolled / maxScroll) * 100;
+            scrollProgress.style.width = progress + '%';
+        });
+
+        // Scroll to Top Button
+        const scrollTopBtn = document.getElementById('scrollTop');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 500) {
+                scrollTopBtn.classList.add('visible');
+            } else {
+                scrollTopBtn.classList.remove('visible');
+            }
+        });
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .step, .stat-item, .cta-box').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Stat number animation
+        const animateNumbers = () => {
+            document.querySelectorAll('.stat-number').forEach(stat => {
+                const text = stat.textContent;
+                if (!isNaN(text)) {
+                    const target = parseInt(text);
+                    let current = 0;
+                    const increment = target / 50;
+                    const timer = setInterval(() => {
+                        current += increment;
+                        if (current >= target) {
+                            stat.textContent = text;
+                            clearInterval(timer);
+                        } else {
+                            stat.textContent = Math.floor(current);
+                        }
+                    }, 30);
+                }
+            });
+        };
+
+        const statsSection = document.querySelector('.stats');
+        const statsObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    animateNumbers();
+                    statsObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        statsObserver.observe(statsSection);
+    </script>
+</body>
+</html>
